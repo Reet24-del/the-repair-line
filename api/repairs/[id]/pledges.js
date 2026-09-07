@@ -1,13 +1,16 @@
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
-  const amount = Number(req.body?.amount ?? 1000);
-  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Pledge amount must be positive.' });
   try {
+    const { parsePledge } = await import('../../../snowflake/validation.mjs');
+    const { id, amount } = parsePledge(req.query?.id ?? req.params?.id, req.body?.amount);
     const { pledgeRepair } = await import('../../../snowflake/client.mjs');
-    await pledgeRepair(Number(req.query.id), amount);
-    return res.status(200).json({ ok: true });
+    const repair = await pledgeRepair(id, amount);
+    if (!repair) return res.status(404).json({ error: 'Repair not found.' });
+    return res.status(200).json({ ok: true, updated: 1, repair });
   } catch (error) {
-    console.error('Pledge failed:', error.message);
+    const { ValidationError } = await import('../../../snowflake/validation.mjs');
+    if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+    console.error('Pledge failed:', error.code ?? 'UNKNOWN', error.missing ?? []);
     return res.status(502).json({ error: 'Could not record this pledge.' });
   }
 }
