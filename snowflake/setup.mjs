@@ -1,13 +1,11 @@
 import snowflake from 'snowflake-sdk';
 import { existsSync, readFileSync } from 'node:fs';
+import { buildSnowflakeConfig } from './config.mjs';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 snowflake.configure({ logLevel: 'ERROR' });
 
-const required = ['SNOWFLAKE_ACCOUNT', 'SNOWFLAKE_USERNAME', 'SNOWFLAKE_PASSWORD', 'SNOWFLAKE_WAREHOUSE', 'SNOWFLAKE_DATABASE', 'SNOWFLAKE_SCHEMA'];
-const missing = required.filter((key) => !process.env[key]?.trim());
-if (missing.length) throw new Error(`Missing Snowflake configuration: ${missing.join(', ')}`);
-const connection = snowflake.createConnection({ account: process.env.SNOWFLAKE_ACCOUNT, username: process.env.SNOWFLAKE_USERNAME, password: process.env.SNOWFLAKE_PASSWORD, warehouse: process.env.SNOWFLAKE_WAREHOUSE });
+const connection = snowflake.createConnection(buildSnowflakeConfig(process.env, { setup: true }));
 const execute = (sqlText) => new Promise((resolve, reject) => connection.execute({ sqlText, complete: (error, _statement, rows) => error ? reject(error) : resolve(rows) }));
 try {
   await new Promise((resolve, reject) => connection.connect((error) => error ? reject(error) : resolve()));

@@ -1,20 +1,13 @@
 import snowflake from 'snowflake-sdk';
 import { randomUUID } from 'node:crypto';
+import { buildSnowflakeConfig } from './config.mjs';
 
 snowflake.configure({ logLevel: 'ERROR' });
 
 const columns = 'ID, TITLE, LOCATION, SEVERITY, ESTIMATED_COST, PEOPLE_HELPED, REASON, IMAGE_URL, PLEDGED_AMOUNT, STATUS';
 
 async function withConnection(operation) {
-  const required = ['SNOWFLAKE_ACCOUNT', 'SNOWFLAKE_USERNAME', 'SNOWFLAKE_PASSWORD', 'SNOWFLAKE_WAREHOUSE', 'SNOWFLAKE_DATABASE', 'SNOWFLAKE_SCHEMA'];
-  const missing = required.filter((key) => !process.env[key]?.trim());
-  if (missing.length) {
-    const error = new Error(`Missing Snowflake configuration: ${missing.join(', ')}`);
-    error.code = 'SNOWFLAKE_CONFIGURATION_MISSING';
-    error.missing = missing;
-    throw error;
-  }
-  const connection = snowflake.createConnection({ account: process.env.SNOWFLAKE_ACCOUNT, username: process.env.SNOWFLAKE_USERNAME, password: process.env.SNOWFLAKE_PASSWORD, warehouse: process.env.SNOWFLAKE_WAREHOUSE, database: process.env.SNOWFLAKE_DATABASE, schema: process.env.SNOWFLAKE_SCHEMA });
+  const connection = snowflake.createConnection(buildSnowflakeConfig());
   try {
     await new Promise((resolve, reject) => connection.connect((error) => error ? reject(error) : resolve()));
     return await operation(connection);
