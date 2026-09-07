@@ -30,7 +30,8 @@ pnpm dev
 
 Create a .env file from .env.example and add the required Gemini and Snowflake environment variables. Never commit secrets.
 
-Use Node.js 22 or newer. Before opening the app, initialize its database:
+Use Node.js 22 or newer. Before opening the app, initialize its database using
+an authorized administrator's configuration, not the limited runtime user:
 
 ~~~bash
 pnpm snowflake:setup
@@ -43,10 +44,38 @@ Only for an empty development database, optional clearly labeled sample data can
 be added with `pnpm snowflake:setup --seed-demo`.
 
 Required server variables: `GEMINI_API_KEY`, `SNOWFLAKE_ACCOUNT`,
-`SNOWFLAKE_USERNAME`, `SNOWFLAKE_PASSWORD`, `SNOWFLAKE_WAREHOUSE`,
-`SNOWFLAKE_DATABASE`, and `SNOWFLAKE_SCHEMA`. Put these in Vercel Production
-environment variables too, and redeploy after changing them. A successful build
-does not initialize Snowflake: the database setup is a separate step.
+`SNOWFLAKE_USERNAME`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, and
+`SNOWFLAKE_SCHEMA`. A successful build does not initialize Snowflake: database
+setup is a separate step.
+
+### Production database authentication
+
+Use a dedicated Snowflake `TYPE=SERVICE` user with
+`SNOWFLAKE_AUTHENTICATOR=SNOWFLAKE_JWT`, an explicit `SNOWFLAKE_ROLE`, and
+`SNOWFLAKE_PRIVATE_KEY`. The key accepts PEM text with real or escaped newlines.
+For an encrypted PEM, also set `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`.
+
+The runtime role needs only warehouse/database/schema `USAGE` and table
+`SELECT`, `INSERT`, and `UPDATE`. Its direct grants do not need `ACCOUNTADMIN`,
+`DELETE`, object ownership, or permission to create databases or users. Audit
+inherited `PUBLIC` grants too: Snowflake's account-wide sample-data and learning
+roles may add access beyond the application's direct grants. Keep the
+administrator's credentials out of the runtime.
+
+Store the private key as a sensitive, server-only Vercel Production variable,
+never a `VITE_` variable or tracked file. Do not give preview deployments the
+production key. Redeploy after environment changes, verify the new connection,
+and then remove the obsolete production password. Invalid or missing key-pair
+credentials fail closed rather than falling back to a password.
+
+Password mode remains for a separately authorized local/admin environment:
+omit the private-key variables and set `SNOWFLAKE_AUTHENTICATOR=SNOWFLAKE` plus
+`SNOWFLAKE_PASSWORD`, only where Snowflake still permits that authentication.
+Key rotation should use Snowflake's second public-key slot, switch Vercel to
+the new key, verify, and only then revoke the old key.
+
+See [Snowflake Node.js authentication](https://docs.snowflake.com/en/developer-guide/node-js/nodejs-driver-authenticate)
+and [key-pair rotation](https://docs.snowflake.com/en/user-guide/key-pair-auth).
 
 ## Verify a repair
 
